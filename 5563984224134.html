@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Compartilhar localização</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; padding: 20px; max-width:720px; margin:auto; }
+    button { padding:10px 16px; font-size:16px; border-radius:8px; cursor:pointer; }
+    #status { margin:12px 0; }
+    .coords { font-family: monospace; background:#f2f2f2; padding:8px; border-radius:6px; display:inline-block; }
+    .actions { margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
+    .small { font-size:0.9rem; color:#555; margin-top:8px; }
+  </style>
+</head>
+<body>
+  <h2>Compartilhar sua localização</h2>
+  <p>Ao clicar em "Obter localização" o navegador pedirá permissão. Se aceitar, aparecerá um botão para abrir o WhatsApp com a sua localização.</p>
+
+  <div id="status">Pronto.</div>
+
+  <button id="getLoc">Obter localização</button>
+
+  <div id="result" style="margin-top:12px;"></div>
+
+  <div class="small">
+    Observações: funciona melhor em celular. Requer HTTPS (GitHub Pages, Netlify, Vercel, etc.). Nada é enviado automaticamente — você precisa confirmar.
+  </div>
+
+  <script>
+    // --- CONFIGURE AQUI: coloque o seu número no formato internacional (sem +, só dígitos).
+    // Ex.: Brasil (55) 11 91234-5678 => 5511912345678
+    const DEST_PHONE = "55984224134"; // substituir antes de publicar
+
+    function urlEncode(s){ return encodeURIComponent(s); }
+
+    const statusEl = document.getElementById('status');
+    const resultEl = document.getElementById('result');
+    const btn = document.getElementById('getLoc');
+
+    function showStatus(msg){ statusEl.textContent = msg; }
+
+    btn.addEventListener('click', () => {
+      resultEl.innerHTML = '';
+      showStatus('Solicitando permissão de localização...');
+      if (!navigator.geolocation) {
+        showStatus('Geolocalização não suportada neste navegador.');
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(success, error, { enableHighAccuracy:true, timeout:15000 });
+    });
+
+    function success(pos){
+      const lat = pos.coords.latitude.toFixed(7);
+      const lon = pos.coords.longitude.toFixed(7);
+      const acc = pos.coords.accuracy ? `${pos.coords.accuracy} m` : 'desconhecida';
+      showStatus('Localização obtida com sucesso.');
+      const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+      resultEl.innerHTML = `
+        <div><strong>Coordenadas:</strong></div>
+        <div class="coords">Latitude: ${lat}<br>Longitude: ${lon}</div>
+        <div style="margin-top:8px;"><strong>Precisão:</strong> ${acc}</div>
+        <div style="margin-top:10px;">
+          <a href="${mapsUrl}" target="_blank" rel="noopener">Abrir no Google Maps</a>
+        </div>
+        <div class="actions">
+          <button id="sendWa">Enviar por WhatsApp</button>
+          <button id="copyBtn">Copiar coordenadas</button>
+        </div>
+      `;
+
+      document.getElementById('sendWa').addEventListener('click', () => {
+        if (!DEST_PHONE || DEST_PHONE.includes("SEU_NUMERO")) {
+          alert('Configure o DEST_PHONE no arquivo com seu número (formato internacional, sem +).');
+          return;
+        }
+        const text = `Olá — envio minha localização:\nLatitude: ${lat}\nLongitude: ${lon}\nMapa: ${mapsUrl}\n(Precisão: ${acc})`;
+        // Preferência: usar wa.me
+        const waLink = `https://wa.me/${DEST_PHONE}?text=${urlEncode(text)}`;
+        // Tenta abrir; em mobile geralmente abre o app, em desktop abre WhatsApp Web
+        window.open(waLink, '_blank');
+      });
+
+      document.getElementById('copyBtn').addEventListener('click', async () => {
+        const txt = `Latitude: ${lat}\nLongitude: ${lon}\n${mapsUrl}\nPrecisão: ${acc}`;
+        try {
+          await navigator.clipboard.writeText(txt);
+          alert('Coordenadas copiadas para a área de transferência.');
+        } catch (e) {
+          alert('Falha ao copiar. Favor copiar manualmente:\n\n' + txt);
+        }
+      });
+    }
+
+    function error(err){
+      if (err.code === 1) {
+        showStatus('Permissão negada. O usuário recusou compartilhar localização.');
+      } else if (err.code === 2) {
+        showStatus('Posição não disponível.');
+      } else if (err.code === 3) {
+        showStatus('Tempo de requisição esgotado.');
+      } else {
+        showStatus('Erro desconhecido ao obter localização.');
+      }
+    }
+  </script>
+</body>
+</html>
